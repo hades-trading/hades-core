@@ -1,8 +1,4 @@
 {
-    "[python]": {
-        "editor.defaultFormatter": "ms-python.python"
-    },
-    "python.formatting.provider": "none",
     "python.testing.pytestArgs": [
         "test"
     ],
