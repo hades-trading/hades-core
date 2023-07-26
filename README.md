@@ -11,7 +11,7 @@ python -m venv runtime
 runtime\Scripts\activate
 pip install -r requirements.txt
 # if requirements.txt not work
-pip3 install python-okx websockets requests binance-futures-connector schedule "uvicorn[standard]" fastapi pandas
+pip3 install python-okx websockets requests binance-futures-connector
 ```
 
 ### 2. Change Configuration
@@ -38,35 +38,3 @@ token            = token
 prefix           = prefix
 period           = 8-23
 ```
-
-### 3. Strategy
-implement your own Strategy (extends Strategy) and replace the strategy in `main.py`
-
-```shell
-python main.py
-```
-
-### 4. Deploy to PROD
-
-#### 4.1 Create /app and execute git clone
-
-```shell
-sudo -s
-mkdir /app
-chown user:user /app
-cd /app
-git clone git@github.com:Icefoxes/trading-bot.git .
-```
-#### 4.2 setup supervisor
-
-```shell
-pip3 install supervisor
-echo_supervisord_conf > /etc/supervisord.conf
-echo bot.ini >> /etc/supervisord.conf
-supervisord -c /etc/supervisord.conf
-supervisorctl start bot
-```
-
-## Planned feature
-- backtesting
-- ui to show backtesting
