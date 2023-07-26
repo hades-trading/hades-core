@@ -11,7 +11,7 @@ name = "hades-core"
 
 # Versions should comply with PEP 440:
 # https://www.python.org/dev/peps/pep-0440/
-version = "0.0.1" 
+dynamic = ['version']
 
 # This is a one-line description or tagline of what your project does. This
 # corresponds to the "Summary" metadata field:
@@ -135,3 +135,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.bandit]
 exclude_dirs = ["build","dist","tests","runtime"]
+
+[tool.setuptools.dynamic]
+version = {attr = "hades.__version__"}
