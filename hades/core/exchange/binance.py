@@ -1,21 +1,22 @@
-from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClient
-from binance.um_futures import UMFutures
-
 import asyncio
-from datetime import datetime
-from typing import List
 import logging
+from datetime import datetime
+from typing import List, Optional
 
-from hades.core import TradeBotConf, Strategy, Subscriber, Exchange,  Order, Position, Balance, Tick, Bar, Trade
+from binance.um_futures import UMFutures
+from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClient
+
+from hades.core import TradeBotConf, Strategy, Exchange, Subscriber, Order, Position, Balance, Tick, Bar, Trade
+
 
 class BinanceUMExchangeClient(Exchange):
-    def __init__(self,  conf: TradeBotConf) -> None:
+    def __init__(self, conf: TradeBotConf) -> None:
         self.conf = {
             'key': conf.binance['apiKey'],
             'secret': conf.binance['secretKey']
         }
         self.client = UMFutures(**self.conf)
-       
+
     # Account Info
     def get_positions(self) -> List[Position]:
         response: List[Position] = []
@@ -27,7 +28,8 @@ class BinanceUMExchangeClient(Exchange):
                     side=pos['positionSide'],
                     quantity=float(pos['positionAmt']),
                     unrealized_profit=round(float(pos['unrealizedProfit']), 3),
-                    unrealized_profit_ratio = round(float(pos['unrealizedProfit']) / float(pos['initialMargin']) * 100, 2),
+                    unrealized_profit_ratio=round(float(pos['unrealizedProfit']) / float(pos['initialMargin']) * 100,
+                                                  2),
                     mode='isolated' if pos['isolated'] else 'cross',
                     price=float(pos['entryPrice']),
                     timestamp=datetime.fromtimestamp(int(pos['updateTime'] / 1000))
@@ -41,7 +43,6 @@ class BinanceUMExchangeClient(Exchange):
                 response.append(Balance(asset=record['asset'], availableBalance=float(record['availableBalance'])))
         return response
 
-    
     def place_buy_order(self, symbol: str, size: float, price: float):
         params = {
             'symbol': symbol,
@@ -52,7 +53,7 @@ class BinanceUMExchangeClient(Exchange):
             'price': price
         }
         return self.client.new_order(**params)
-    
+
     def get_orders(self) -> List[Order]:
         orders = []
         for record in self.client.get_orders():
@@ -68,7 +69,7 @@ class BinanceUMExchangeClient(Exchange):
                 timestamp=datetime.fromtimestamp(record['updateTime'] / 1000)
             ))
         return orders
-    
+
     def place_sell_order(self, symbol: str, size: float, price: float):
         params = {
             'symbol': symbol,
@@ -79,16 +80,16 @@ class BinanceUMExchangeClient(Exchange):
             'price': price
         }
         return self.client.new_order(**params)
-    
-    def cancel_order(self, orderId: str, symbol: str):
-        return self.client.cancel_order(symbol=symbol, orderId=int(orderId))
-    
+
+    def cancel_order(self, order_id: str, symbol: str):
+        return self.client.cancel_order(symbol=symbol, orderId=int(order_id))
+
     def close_position(self, symbol: str):
         pass
 
     # get latest 100 bar
     def get_candlesticks(self, symbol: str, bar: str = '1m', limit: int = 100) -> List[Bar]:
-        bars =[]
+        bars = []
         for bar in self.client.klines(symbol=symbol, interval=bar, limit=limit):
             _stamp, _open, _high, _low, _close, _vol, *_ = bar
             bars.append(Bar(
@@ -101,37 +102,38 @@ class BinanceUMExchangeClient(Exchange):
             ))
         return bars
 
-                            
     def get_trades(self, symbol: str) -> List[Trade]:
         trades: List[Trade] = []
         cache = {}
         for record in self.client.get_account_trades(symbol=symbol):
             if record['commissionAsset'] == 'USDT':
-                priceToUSDT = 1
+                price_to_usdt = 1
             else:
                 if record['commissionAsset'] not in cache:
-                    priceToUSDT = float(self.client.mark_price(symbol=f"{record['commissionAsset']}USDT")['markPrice'])
-                    cache[record['commissionAsset']] = priceToUSDT
+                    price_to_usdt = float(
+                        self.client.mark_price(symbol=f"{record['commissionAsset']}USDT")['markPrice'])
+                    cache[record['commissionAsset']] = price_to_usdt
                 else:
-                    priceToUSDT = cache[record['commissionAsset']]
-                
+                    price_to_usdt = cache[record['commissionAsset']]
+
             trades.append(Trade(
-                 id=record['id'],
-                 orderId=record['orderId'],
-                 symbol=record['symbol'],
-                 side=record['side'],
-                 price=float(record['price']),
-                 quantity=float(record['qty']),
-                 realizedPnl=float(record['realizedPnl']),
-                 marginAsset=record['marginAsset'],
-                 quoteQty=float(record['quoteQty']),
-                 commissionToUSDT=priceToUSDT * float(record['commission']),
-                 commission=float(record['commission']),
-                 commissionAsset=record['commissionAsset'],
-                 timestamp=datetime.fromtimestamp(record['time'] / 1000),
-                 maker=bool(record['maker'])
+                id=record['id'],
+                orderId=record['orderId'],
+                symbol=record['symbol'],
+                side=record['side'],
+                price=float(record['price']),
+                quantity=float(record['qty']),
+                realizedPnl=float(record['realizedPnl']),
+                marginAsset=record['marginAsset'],
+                quoteQty=float(record['quoteQty']),
+                commissionToUSDT=price_to_usdt * float(record['commission']),
+                commission=float(record['commission']),
+                commissionAsset=record['commissionAsset'],
+                timestamp=datetime.fromtimestamp(record['time'] / 1000),
+                maker=bool(record['maker'])
             ))
         return trades
+
 
 class BinanceUMSubscriber(Subscriber):
     def __init__(self, strategy: Strategy) -> None:
@@ -142,17 +144,16 @@ class BinanceUMSubscriber(Subscriber):
             'key': conf.binance['apiKey'],
             'secret': conf.binance['secretKey']
         }
-        self.listenKey: str = None
+        self.listenKey: Optional[str] = None
         self.last_auth: datetime = datetime.utcnow()
-        self.last_tick: int = None
-        self.last_bar : int = None
-        
-    
+        self.last_tick: Optional[int] = None
+        self.last_bar: Optional[int] = None
+
     def renew(self):
         logging.info('renew key')
         if self.listenKey:
-            self.client.renew_listen_key(self.listenKey)
-    
+            self.client.renew_listen_key(listenKey=self.listenKey)
+
     def _run(self):
         self.client = UMFutures(**self.conf)
         self.listenKey = self.client.new_listen_key()['listenKey']
@@ -165,12 +166,12 @@ class BinanceUMSubscriber(Subscriber):
             for bar_type in self.strategy.klines:
                 self.ws.kline(id=idx, callback=self.handle_message, symbol=symbol, interval=bar_type)
                 idx += 1
-        self.ws.user_data(listen_key=self.listenKey, id=idx+1, callback=self.handle_message)
+        self.ws.user_data(listen_key=self.listenKey, id=idx + 1, callback=self.handle_message)
         self.ws.run()
 
     def run(self) -> asyncio.Task:
         return asyncio.create_task(self._run())
-    
+
     def stop(self):
         self.ws.stop()
 
@@ -180,12 +181,13 @@ class BinanceUMSubscriber(Subscriber):
             self.last_auth = datetime.utcnow()
         event = data.get('e')
         msg_stamp = data.get('E')
-        
+
         if not event:
             return
         elif '24hrMiniTicker' == event:
             if not self.last_tick or msg_stamp - self.last_tick >= 1000:
-                tick = Tick(symbol=data.get('s'), price=round(float(data.get('c')), 4), timestmap=datetime.fromtimestamp(int(msg_stamp / 1000)))
+                tick = Tick(symbol=data.get('s'), price=round(float(data.get('c')), 4),
+                            timestamp=datetime.fromtimestamp(int(msg_stamp / 1000)))
                 self.strategy.on_tick([tick])
             self.last_tick = msg_stamp
         elif 'ORDER_TRADE_UPDATE' == event:
@@ -227,9 +229,9 @@ class BinanceUMSubscriber(Subscriber):
                         side=_position.get('ps'),
                         quantity=float(_position['pa']),
                         unrealized_profit=round(float(_position['up']), 3),
-                        unrealized_profit_ratio = round(float(_position['up']) / float(_position['iw']) * 100, 2),
-                        mode=_position.get('mt'),                    
-                        price=float(_position['ep']),            # entry price
+                        unrealized_profit_ratio=round(float(_position['up']) / float(_position['iw']) * 100, 2),
+                        mode=_position.get('mt'),
+                        price=float(_position['ep']),  # entry price
                         timestamp=datetime.fromtimestamp(int(msg_stamp / 1000))
                     ))
             self.strategy.on_position_status(positions)
@@ -237,13 +239,13 @@ class BinanceUMSubscriber(Subscriber):
             balance: List[Balance] = []
             for record in record.get('B'):
                 balance.append(Balance(
-                    asset=record['a'],                                # asset
-                    availableBalance=round(float(record['bc']), 2),   # balance
+                    asset=record['a'],  # asset
+                    availableBalance=round(float(record['bc']), 2),  # balance
                 ))
             if len(balance) > 0:
                 self.strategy.on_balance_status(balance)
         elif 'kline' == event:
-            if not self.last_bar or msg_stamp - self.last_bar >= 1000: 
+            if not self.last_bar or msg_stamp - self.last_bar >= 1000:
                 record = data.get('k', {})
                 bar = Bar(
                     timestamp=datetime.fromtimestamp(int(msg_stamp) / 1000),

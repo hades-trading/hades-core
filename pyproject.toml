@@ -97,7 +97,8 @@ dependencies = [ # Optional
    "python-okx", 
    "websockets", 
    "requests", 
-   "binance-futures-connector"
+   "binance-futures-connector",
+   "python-telegram-bot"
 ]
 
 # List additional groups of dependencies here (e.g. development

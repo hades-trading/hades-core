@@ -1,11 +1,13 @@
 import asyncio
-from typing import List
-from enum import Enum
 import logging
+from enum import Enum
+from typing import List, Optional
 
 from hades.core import Balance, Tick, Bar, Order, Position, Trade
 
+
 class ExchangeEnum(Enum):
+    BackTesting = 0
     OKX = 1
     Binance = 2
 
@@ -25,10 +27,10 @@ class Exchange:
 
     def place_sell_order(self, symbol: str, size: float, price: float) -> Order:
         pass
-    
+
     def cancel_order(self, orderId: str, symbol: str) -> Order:
         pass
-    
+
     def close_position(self, symbol: str):
         pass
 
@@ -39,6 +41,7 @@ class Exchange:
     def get_trades(self, symbol: str) -> List[Trade]:
         pass
 
+
 class Subscriber:
     def run(self) -> asyncio.Task:
         pass
@@ -48,21 +51,21 @@ class Subscriber:
 
 
 class Strategy:
-    def __init__(self, id: str, symbols: List[str], instrumentType: str, klines: List[str]) -> None:
+    def __init__(self, id: str, symbols: List[str], instrument_type: str, klines: List[str]) -> None:
         self.id = id
         self.symbols = symbols
-        self.instrumentType = instrumentType
+        self.instrumentType = instrument_type
         self.klines = klines
         self.balance: List[Balance] = []
-        self.exchange: Exchange = None
+        self.exchange: Optional[Exchange] = None
         # local state
         self.positions: List[Position] = []
-        self.ticks:List[Tick] = []
+        self.ticks: List[Tick] = []
         self.bars = {}
 
     def on_init_exchange(self, exchange: Exchange):
         self.exchange = exchange
-        
+
     def on_tick(self, ticks: List[Tick]):
         self.ticks.extend(ticks)
         if len(self.ticks) % 100 == 0:
@@ -72,7 +75,7 @@ class Strategy:
 
     def on_bar(self, bars: List[Bar]):
         pass
-        
+
     def on_order_status(self, orders: List[Order]):
         pass
 

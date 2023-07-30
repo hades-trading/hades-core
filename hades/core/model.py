@@ -1,30 +1,50 @@
 from collections import namedtuple
 
-Tick = namedtuple('Tick', ['symbol', 'price', 'timestmap'])
+Tick = namedtuple('Tick', ['symbol',
+                           'price',
+                           'timestamp'])
 
-Bar = namedtuple('Bar', ['timestamp', 'open', 'high', 'low', 'close', 'vol'])
+Bar = namedtuple('Bar', ['timestamp',
+                         'open',
+                         'high',
+                         'low',
+                         'close',
+                         'vol'])
 
-Order = namedtuple('Orders', ['orderId', 'orderType', 'symbol', 
-                              'instrumentType', 'price', 
-                                'status', 'side', 'quantity', 'timestamp'])
+Order = namedtuple('Orders', ['orderId',
+                              'orderType',
+                              'symbol',
+                              'instrumentType',
+                              'price',
+                              'status',
+                              'side',
+                              'quantity',
+                              'timestamp'])
 
-Position = namedtuple('Position', ['symbol', 'instrumentType', 
-                                   'side', 'quantity', 'unrealized_profit', 
-                                   'unrealized_profit_ratio', 'mode', 'price', 'timestamp'])
+Position = namedtuple('Position', ['symbol',
+                                   'instrumentType',
+                                   'side',
+                                   'quantity',
+                                   'unrealized_profit',
+                                   'unrealized_profit_ratio',
+                                   'mode',
+                                   'price',
+                                   'timestamp'])
 
-Balance = namedtuple('Balance',['asset', 'availableBalance'])
+Balance = namedtuple('Balance', ['asset',
+                                 'availableBalance'])
 
-Trade = namedtuple('Trade', ['symbol', 
-                             'id', 
-                             'orderId', 
-                             'side', 
-                             'price', 
+Trade = namedtuple('Trade', ['symbol',
+                             'id',
+                             'orderId',
+                             'side',
+                             'price',
                              'quantity',
                              'realizedPnl',
-                             'marginAsset', 
-                             'quoteQty', 
-                             'commission', 
-                             'commissionToUSDT', 
-                             'commissionAsset', 
+                             'marginAsset',
+                             'quoteQty',
+                             'commission',
+                             'commissionToUSDT',
+                             'commissionAsset',
                              'timestamp',
                              'maker'])
