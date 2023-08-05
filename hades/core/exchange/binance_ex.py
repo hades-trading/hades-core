@@ -24,7 +24,7 @@ class BinanceUMExchangeClient(Exchange):
             if float(pos['positionAmt']) != 0:
                 response.append(Position(
                     symbol=pos['symbol'],
-                    instrumentType='SWAP',
+                    instrument_type='SWAP',
                     side=pos['positionSide'],
                     quantity=float(pos['positionAmt']),
                     unrealized_profit=round(float(pos['unrealizedProfit']), 3),
@@ -40,7 +40,7 @@ class BinanceUMExchangeClient(Exchange):
         response: List[Balance] = []
         for record in self.client.balance(recvWindow=6000):
             if float(record['availableBalance']) != 0:
-                response.append(Balance(asset=record['asset'], availableBalance=float(record['availableBalance'])))
+                response.append(Balance(asset=record['asset'], available_balance=float(record['availableBalance'])))
         return response
 
     def place_buy_order(self, symbol: str, size: float, price: float):
@@ -58,10 +58,10 @@ class BinanceUMExchangeClient(Exchange):
         orders = []
         for record in self.client.get_orders():
             orders.append(Order(
-                orderId=record['orderId'],
-                orderType=record['type'],
+                order_id=record['orderId'],
+                order_type=record['type'],
                 symbol=record['symbol'],
-                instrumentType='SWAP',
+                instrument_type='SWAP',
                 price=float(record['price']),
                 status=record['status'],
                 side=record['side'],
@@ -117,37 +117,110 @@ class BinanceUMExchangeClient(Exchange):
                     price_to_usdt = cache[record['commissionAsset']]
 
             trades.append(Trade(
-                id=record['id'],
-                orderId=record['orderId'],
+                id=str(record['id']),
+                order_id=str(record['orderId']),
                 symbol=record['symbol'],
                 side=record['side'],
                 price=float(record['price']),
                 quantity=float(record['qty']),
-                realizedPnl=float(record['realizedPnl']),
-                marginAsset=record['marginAsset'],
-                quoteQty=float(record['quoteQty']),
-                commissionToUSDT=price_to_usdt * float(record['commission']),
+                realized_pnl=float(record['realizedPnl']),
+                margin_asset=record['marginAsset'],
+                quote_quantity=float(record['quoteQty']),
+                commission_to_usdt=price_to_usdt * float(record['commission']),
                 commission=float(record['commission']),
-                commissionAsset=record['commissionAsset'],
+                commission_asset=record['commissionAsset'],
                 timestamp=datetime.fromtimestamp(record['time'] / 1000),
                 maker=bool(record['maker'])
             ))
         return trades
 
 
+def _process_positions(msg_stamp: int, record: dict) -> List[Position]:
+    # handle positions
+    positions: List[Position] = []
+    for _position in record.get('P'):
+        if float(_position['iw']) != 0:
+            positions.append(Position(
+                symbol=_position.get('s'),
+                instrument_type='SWAP',
+                side=_position.get('ps'),
+                quantity=float(_position['pa']),
+                unrealized_profit=round(float(_position['up']), 3),
+                unrealized_profit_ratio=round(float(_position['up']) / float(_position['iw']) * 100, 2),
+                mode=_position.get('mt'),
+                price=float(_position['ep']),  # entry price
+                timestamp=datetime.fromtimestamp(int(msg_stamp / 1000))
+            ))
+    return positions
+
+
+def _process_order(data: dict) -> Order:
+    record = data.get('o', {})
+    logging.info(record)
+    order = Order(
+        order_id=str(record.get('i')),
+        # MARKET
+        # LIMIT
+        # STOP
+        # TAKE_PROFIT
+        # LIQUIDATION
+        order_type=record.get('o'),
+        symbol=record.get('s'),
+        instrument_type='SWAP',
+        price=float(record.get('ap')),
+        # NEW
+        # CANCELED
+        # CALCULATED
+        # EXPIRED
+        # TRADE
+        # AMENDMENT
+        status=record.get('x'),
+        # BUY || SELL
+        side=record.get('S'),
+        quantity=float(record.get('q')),
+        timestamp=datetime.fromtimestamp(int(record.get('T')) / 1000)
+    )
+    return order
+
+
+def _process_bar(data: dict, msg_stamp: int) -> Bar:
+    record = data.get('k', {})
+    bar = Bar(
+        timestamp=datetime.fromtimestamp(int(msg_stamp) / 1000),
+        open=float(record['o']),
+        high=float(record['h']),
+        low=float(record['l']),
+        close=float(record['c']),
+        vol=float(record['q']),
+    )
+    return bar
+
+
+def _process_balance(record: dict) -> List[Balance]:
+    balance: List[Balance] = []
+    for record in record.get('B'):
+        balance.append(Balance(
+            asset=record['a'],  # asset
+            available_balance=round(float(record['bc']), 2),  # balance
+        ))
+    return balance
+
+
 class BinanceUMSubscriber(Subscriber):
     def __init__(self, strategy: Strategy) -> None:
-        self.strategy = strategy
-        conf = TradeBotConf.load()
-        self.strategy.on_init_exchange(BinanceUMExchangeClient(conf))
-        self.conf = {
-            'key': conf.binance['apiKey'],
-            'secret': conf.binance['secretKey']
+        self.conf: TradeBotConf = TradeBotConf.load()
+        super().__init__(strategy)
+        self.config = {
+            'key': self.conf.binance['apiKey'],
+            'secret': self.conf.binance['secretKey']
         }
         self.listenKey: Optional[str] = None
         self.last_auth: datetime = datetime.utcnow()
         self.last_tick: Optional[int] = None
         self.last_bar: Optional[int] = None
+
+    def get_exchange(self) -> Exchange:
+        return self.strategy.on_init_exchange(BinanceUMExchangeClient(self.conf))
 
     def renew(self):
         logging.info('renew key')
@@ -155,7 +228,7 @@ class BinanceUMSubscriber(Subscriber):
             self.client.renew_listen_key(listenKey=self.listenKey)
 
     def _run(self):
-        self.client = UMFutures(**self.conf)
+        self.client = UMFutures(**self.config)
         self.listenKey = self.client.new_listen_key()['listenKey']
         self.ws = UMFuturesWebsocketClient()
         idx = 1
@@ -179,81 +252,25 @@ class BinanceUMSubscriber(Subscriber):
         if (datetime.utcnow() - self.last_auth).seconds > 60 * 45:
             self.renew()
             self.last_auth = datetime.utcnow()
-        event = data.get('e')
-        msg_stamp = data.get('E')
+        event: str = data.get('e')
+        msg_stamp: int = data.get('E')
 
         if not event:
             return
         elif '24hrMiniTicker' == event:
             if not self.last_tick or msg_stamp - self.last_tick >= 1000:
-                tick = Tick(symbol=data.get('s'), price=round(float(data.get('c')), 4),
-                            timestamp=datetime.fromtimestamp(int(msg_stamp / 1000)))
-                self.strategy.on_tick([tick])
+                self.on_tick([Tick(symbol=data.get('s'),
+                                   price=round(float(data.get('c')), 4),
+                                   timestamp=datetime.fromtimestamp(int(msg_stamp / 1000)))])
             self.last_tick = msg_stamp
         elif 'ORDER_TRADE_UPDATE' == event:
-            record = data.get('o', {})
-            logging.info(record)
-            order = Order(
-                orderId=record.get('i'),
-                # MARKET
-                # LIMIT
-                # STOP
-                # TAKE_PROFIT
-                # LIQUIDATION
-                orderType=record.get('o'),
-                symbol=record.get('s'),
-                instrumentType='SWAP',
-                price=float(record.get('ap')),
-                # NEW
-                # CANCELED
-                # CALCULATED
-                # EXPIRED
-                # TRADE
-                # AMENDMENT
-                status=record.get('x'),
-                # BUY || SELL
-                side=record.get('S'),
-                quantity=float(record.get('q')),
-                timestamp=datetime.fromtimestamp(int(record.get('T')) / 1000)
-            )
-            self.strategy.on_order_status([order])
+            self.on_order_status([_process_order(data)])
         elif 'ACCOUNT_UPDATE' == event:
             record = data.get('a', {})
-            # handle positions
-            positions: List[Position] = []
-            for _position in record.get('P'):
-                if float(_position['iw']) != 0:
-                    positions.append(Position(
-                        symbol=_position.get('s'),
-                        instrumentType='SWAP',
-                        side=_position.get('ps'),
-                        quantity=float(_position['pa']),
-                        unrealized_profit=round(float(_position['up']), 3),
-                        unrealized_profit_ratio=round(float(_position['up']) / float(_position['iw']) * 100, 2),
-                        mode=_position.get('mt'),
-                        price=float(_position['ep']),  # entry price
-                        timestamp=datetime.fromtimestamp(int(msg_stamp / 1000))
-                    ))
-            self.strategy.on_position_status(positions)
+            self.on_position_status(_process_positions(msg_stamp, record))
             # handle balance
-            balance: List[Balance] = []
-            for record in record.get('B'):
-                balance.append(Balance(
-                    asset=record['a'],  # asset
-                    availableBalance=round(float(record['bc']), 2),  # balance
-                ))
-            if len(balance) > 0:
-                self.strategy.on_balance_status(balance)
+            self.on_balance_status(_process_balance(record))
         elif 'kline' == event:
             if not self.last_bar or msg_stamp - self.last_bar >= 1000:
-                record = data.get('k', {})
-                bar = Bar(
-                    timestamp=datetime.fromtimestamp(int(msg_stamp) / 1000),
-                    open=float(record['o']),
-                    high=float(record['h']),
-                    low=float(record['l']),
-                    close=float(record['c']),
-                    vol=float(record['q']),
-                )
-                self.strategy.on_bar([bar])
+                self.on_bar([_process_bar(data, msg_stamp)])
             self.last_bar = msg_stamp

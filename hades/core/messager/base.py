@@ -10,7 +10,12 @@ class Messenger:
         self.start, self.end = conf.period.split('-')
         self.last_notify = None
 
-    def _send_message(self, _: str) -> bool:
+    def _send_message(self, text: str) -> bool:
+        """
+        Args:
+            text: text message
+        Returns:
+        """
         pass
 
     def notify(self, text: str) -> bool:

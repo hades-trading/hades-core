@@ -1,6 +1,7 @@
-from typing import List
 import json
-from hades.core import *
+from typing import List
+
+from hades.core import Strategy, Balance, Order, BinanceUMSubscriber
 
 account_data = """
 {
@@ -142,20 +143,20 @@ bar_data = '''
   }
 }
 '''
+
+
 def test_binance_subscriber():
     class TestStrategy(Strategy):
         def __init__(self) -> None:
-            super().__init__('id', ['BTCUSDT'], 'SWAP', '1m')
+            super().__init__('id', ['BTCUSDT'], 'SWAP', ['1m'])
             self.orders: List[Order] = []
-      
-        
+
         def on_order_status(self, orders: List[Order]):
             super().on_order_status(orders)
             self.orders.extend(orders)
-          
-        def on_balance_status(self, balance: Balance):
-            super().on_balance_status(balance)
 
+        def on_balance_status(self, balance: List[Balance]):
+            super().on_balance_status(balance)
 
     strategy = TestStrategy()
     um = BinanceUMSubscriber(strategy)
@@ -164,7 +165,7 @@ def test_binance_subscriber():
     assert strategy.orders[0].status == 'NEW'
     um.handle_message(json.loads(account_data.strip('\n').strip()))
     assert len(strategy.balance) > 0
-    assert strategy.balance[0].availableBalance == 50.12
+    assert strategy.balance[0].available_balance == 50.12
 
     assert len(strategy.positions) > 0
     assert strategy.positions[0].unrealized_profit == 2850.21200
@@ -173,4 +174,3 @@ def test_binance_subscriber():
     assert strategy.ticks[0].price == 0.0025
 
     um.handle_message(json.loads(bar_data))
- 

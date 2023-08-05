@@ -7,7 +7,6 @@ from hades.core.exchange import BinanceUMSubscriber, OkxSubscriber
 from hades.core.executor import TradeExecutor
 from hades.core.messager import Messenger, MessageFactory, MessageEnum
 
-
 logging.basicConfig(filename='log.txt',
                     format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s',
                     level=logging.INFO)
