@@ -43,4 +43,5 @@ period           = 8-23
 [telegram]
 token            = token
 period           = 8-23
+chat             = chat
 ```
