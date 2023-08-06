@@ -11,7 +11,7 @@ python -m venv runtime
 runtime\Scripts\activate
 pip install -r requirements.txt
 # if requirements.txt not work
-pip3 install python-okx websockets requests binance-futures-connector python-telegram-bot
+pip3 install python-okx websockets requests binance-futures-connector python-telegram-bot pydantic
 ```
 
 ### 2. Change Configuration
