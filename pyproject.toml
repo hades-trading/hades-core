@@ -1,4 +1,3 @@
-
 [project]
 # This is the name of your project. The first time you publish this
 # package, this name will be registered for you. It will determine how
@@ -37,7 +36,7 @@ requires-python = ">=3.7"
 # This is either text indicating the license for the distribution, or a file
 # that contains the license
 # https://packaging.python.org/en/latest/specifications/core-metadata/#license
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 
 # This field adds keywords for your project which will appear on the
 # project page. What does your project relate to?
@@ -45,46 +44,43 @@ license = {file = "LICENSE"}
 # Note that this is a list of additional keywords, separated
 # by commas, to be used to assist searching for the distribution in a
 # larger catalog.
-keywords = ["okx", "binance", "cryptocurrency"] 
+keywords = ["okx", "binance", "cryptocurrency"]
 
 # This should be your name or the name of the organization who originally
 # authored the project, and a valid email address corresponding to the name
 # listed.
 authors = [
-     {name = "Gary Guo", email = "gary.guo.china@gmail.com"},
+    { name = "Gary Guo", email = "gary.guo.china@gmail.com" },
 ]
 
 # This should be your name or the names of the organization who currently
 # maintains the project, and a valid email address corresponding to the name
 # listed.
 maintainers = [
-    {name = "Gary Guo", email = "gary.guo.china@gmail.com"},
+    { name = "Gary Guo", email = "gary.guo.china@gmail.com" },
 ]
 
 # Classifiers help users find your project by categorizing it.
 #
 # For a list of valid classifiers, see https://pypi.org/classifiers/
-classifiers = [  # Optional
-  # How mature is this project? Common values are
-  #   3 - Alpha
-  #   4 - Beta
-  #   5 - Production/Stable
-  "Development Status :: 3 - Alpha",
-
-  # Indicate who your project is intended for
-  "Intended Audience :: Developers",
-  "Topic :: Software Development :: Build Tools",
-
-  # Pick your license as you wish
-  "License :: OSI Approved :: MIT License",
-
-  # Specify the Python versions you support here. In particular, ensure
-  # that you indicate you support Python 3. These classifiers are *not*
-  # checked by "pip install". See instead "python_requires" below.
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3 :: Only",
+classifiers = [# Optional
+    # How mature is this project? Common values are
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 3 - Alpha",
+    # Indicate who your project is intended for
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    # Pick your license as you wish
+    "License :: OSI Approved :: MIT License",
+    # Specify the Python versions you support here. In particular, ensure
+    # that you indicate you support Python 3. These classifiers are *not*
+    # checked by "pip install". See instead "python_requires" below.
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
 ]
 
 # This field lists other packages that your project depends on to run.
@@ -93,11 +89,13 @@ classifiers = [  # Optional
 #
 # For an analysis of this field vs pip's requirements files see:
 # https://packaging.python.org/discussions/install-requires-vs-requirements/
-dependencies = [ # Optional
-   "python-okx", 
-   "websockets", 
-   "requests", 
-   "binance-futures-connector"
+dependencies = [# Optional
+    "python-okx",
+    "websockets",
+    "requests",
+    "binance-futures-connector",
+    "python-telegram-bot",
+    "pydantic"
 ]
 
 # List additional groups of dependencies here (e.g. development
@@ -134,7 +132,7 @@ requires = ["setuptools>=43.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.bandit]
-exclude_dirs = ["build","dist","tests","runtime"]
+exclude_dirs = ["build", "dist", "tests", "runtime"]
 
 [tool.setuptools.dynamic]
-version = {attr = "hades.__version__"}
+version = { attr = "hades.__version__" }

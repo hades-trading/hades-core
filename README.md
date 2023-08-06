@@ -11,7 +11,7 @@ python -m venv runtime
 runtime\Scripts\activate
 pip install -r requirements.txt
 # if requirements.txt not work
-pip3 install python-okx websockets requests binance-futures-connector
+pip3 install python-okx websockets requests binance-futures-connector python-telegram-bot pydantic
 ```
 
 ### 2. Change Configuration
@@ -33,8 +33,14 @@ ws_business      = wss://wsaws.okx.com:8443/ws/v5/business
 domain           = https://aws.okx.com
 useServerTime    = False
 
-[notification]
+# optional
+[dingding]
 token            = token
 prefix           = prefix
+period           = 8-23
+
+# optional
+[telegram]
+token            = token
 period           = 8-23
 ```

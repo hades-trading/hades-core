@@ -1,21 +1,21 @@
-
 import asyncio
-import websockets
-from okx.websocket import WsUtils
-import okx.Trade as Trade
-import okx.Account as Account
-import okx.MarketData as Market
-
-from typing import List
-from datetime import datetime
 import json
 import logging
+from asyncio import Future
+from datetime import datetime
+from typing import List, Tuple
 
-from hades.core import TradeBotConf, Strategy, Exchange, Subscriber, Order, Position, Balance, Tick, Bar
+import okx.Account as AccountApi
+import okx.MarketData as MarketApi
+import okx.Trade as TradeApi
+import websockets
+from okx.websocket import WsUtils
+
+from hades.core import TradeBotConf, Strategy, Exchange, Subscriber, Order, Position, Balance, Tick, Bar, Trade
 
 
 class OkxExchangeClient(Exchange):
-    def __init__(self,  conf: TradeBotConf) -> None:
+    def __init__(self, conf: TradeBotConf) -> None:
         self.conf = {
             'api_key': conf.okx['apiKey'],
             'api_secret_key': conf.okx['secretKey'],
@@ -23,53 +23,63 @@ class OkxExchangeClient(Exchange):
             'passphrase': conf.okx['passphrase'],
             'flag': '0'
         }
-        self.tradeApi = Trade.TradeAPI(**self.conf)
-        self.accountApi = Account.AccountAPI(**self.conf)
-        self.marketApi = Market.MarketAPI(**self.conf)
-    # Account Info
+        self.tradeApi = TradeApi.TradeAPI(**self.conf)
+        self.accountApi = AccountApi.AccountAPI(**self.conf)
+        self.marketApi = MarketApi.MarketAPI(**self.conf)
+
     def get_positions(self) -> List[Position]:
         response = self.accountApi.get_positions()
         if response.get('code') == '0' and response.get('data') and len(response['data']) > 0:
-            return to_okx_position(response['data']) 
+            return to_okx_position(response['data'])
         return []
 
-    def get_balance(self):
+    def get_balance(self) -> List[Balance]:
         return self.accountApi.get_account_balance()
-    # Trade Info
+
     def get_orders(self) -> List[Order]:
         response = self.tradeApi.get_order_list()
         if response.get('code') == '0' and response.get('data') and len(response['data']) > 0:
-            return to_okx_order(response['data']) 
+            return to_okx_order(response['data'])
         return []
-    
-    def place_buy_order(self, symbol: str, size: float, price: float):
-        return self.tradeApi.place_order(instId=symbol, tdMode='isolated', side='buy', sz=str(size), px=str(price), ordType='post_only')
-    
-    def place_sell_order(self, symbol: str, size: float, price: float):
-        return self.tradeApi.place_order(instId=symbol, tdMode='isolated', side='sell', sz=str(size), px=str(price), ordType='post_only')
-    
-    def cancel_order(self, orderId: str, symbol: str):
-        return self.tradeApi.cancel_order(instId=symbol, ordId=orderId)
-    
+
+    def place_buy_order(self, symbol: str, size: float, price: float) -> Order:
+        return self.tradeApi.place_order(instId=symbol,
+                                         tdMode='isolated',
+                                         side='buy',
+                                         sz=str(size),
+                                         px=str(price),
+                                         ordType='post_only')
+
+    def place_sell_order(self, symbol: str, size: float, price: float) -> Order:
+        return self.tradeApi.place_order(instId=symbol,
+                                         tdMode='isolated',
+                                         side='sell',
+                                         sz=str(size),
+                                         px=str(price),
+                                         ordType='post_only')
+
+    def cancel_order(self, order_id: str, symbol: str) -> Order:
+        return self.tradeApi.cancel_order(instId=symbol, ordId=order_id)
+
     def close_position(self, symbol: str):
         return self.tradeApi.close_positions(instId=symbol, mgnMode='isolated')
 
-    # get latest 100 bar
     def get_candlesticks(self, symbol: str, bar: str = '1m', limit: int = 100) -> List[Bar]:
         response = self.marketApi.get_candlesticks(instId=symbol, bar=bar, limit=str(limit))
         if response.get('code') == '0' and response.get('data') and len(response['data']) > 0:
-            return to_okx_bar(response['data']) 
+            return to_okx_bar(response['data'])
         return []
-    
+
+    def get_trades(self, symbol: str) -> List[Trade]:
+        return []
+
 
 def to_okx_tick(data: dict) -> List[Tick]:
-    ticks = []
-    ticks.append(Tick(
+    return [Tick(
         symbol=data['instId'],
         price=float(data['last']),
-        timestmap = datetime.fromtimestamp(int(data['ts']) / 1000)
-    ))
-    return ticks
+        timestamp=datetime.fromtimestamp(int(data['ts']) / 1000)
+    )]
 
 
 def to_okx_position(data: List[dict]) -> List[Position]:
@@ -77,30 +87,30 @@ def to_okx_position(data: List[dict]) -> List[Position]:
     for record in data:
         positions.append(Position(
             symbol=record.get('instId'),
-            instrumentType=record.get('instType'),
+            instrument_type=record.get('instType'),
             side=record.get('posSide'),
             quantity=float(record.get('pos')),
             unrealized_profit=round(float(record.get('upl')), 2),
-            unrealized_profit_ratio = round(float(record.get('uplRatio')) * 100, 2) ,
+            unrealized_profit_ratio=round(float(record.get('uplRatio')) * 100, 2),
             mode=record.get('mgnMode'),
             price=float(record.get('avgPx')),
             timestamp=datetime.fromtimestamp(int(record['cTime']) / 1000)
         ))
     return positions
-   
+
 
 def to_okx_bar(records: List[str]) -> List[Bar]:
     bars: List[Bar] = []
     for record in records:
-        timestamp, open, high, low, close, vol, _, _, _ = record
+        timestamp, _open, high, low, close, vol, _, _, _ = record
         bars.append(Bar(
             timestamp=datetime.fromtimestamp(int(timestamp) / 1000),
-            open=float(open),
+            open=float(_open),
             high=float(high),
             low=float(low),
             close=float(close),
             vol=float(vol),
-        )) 
+        ))
     return bars
 
 
@@ -108,10 +118,10 @@ def to_okx_order(records: List[dict]) -> List[Order]:
     orders = []
     for data in records:
         orders.append(Order(
-            orderId=data.get('ordId'),
-            orderType=data.get('ordType'),
+            order_id=data.get('ordId'),
+            order_type=data.get('ordType'),
             symbol=data.get('instId'),
-            instrumentType=data.get('instType'),
+            instrument_type=data.get('instType'),
             price=float(data.get('px')),
             status=data.get('state'),
             side=data.get('side'),
@@ -126,7 +136,7 @@ def to_okx_balance(records: dict) -> List[Balance]:
     if 'details' in records:
         for record in records['details']:
             if float(record.get('availBal')) != 0:
-                balance.append(Balance(asset=record['ccy'], availableBalance=float(record.get('availBal'))))
+                balance.append(Balance(asset=record['ccy'], available_balance=float(record.get('availBal'))))
     return balance
 
 
@@ -138,9 +148,6 @@ class Subscription:
             "extraParams": "{\"updateInterval\": INTERVAL}".replace('INTERVAL', str(interval)),
             **arg
         }
-
-    def __repr__(self) -> str:
-        return self.arg
 
 
 class OkxConnectionManager:
@@ -179,7 +186,7 @@ class OkxConnectionManager:
             except websockets.ConnectionClosed:
                 logging.error(f"{','.join([sub.channel for sub in self.subscriptions])} reconnecting")
                 continue
-  
+
     async def handle_message(self, message: dict):
         if message.get('event'):
             logging.info(f"{','.join([sub.channel for sub in self.subscriptions])} {json.dumps(message)}")
@@ -207,7 +214,8 @@ class OrderSubscriber(OkxConnectionManager):
         self.strategy = strategy
         conf = TradeBotConf.load()
         logging.info('init OrderSubscriber')
-        super().__init__(conf.okx['ws_private'], [Subscription(self.channel, {'instType': self.strategy.instrumentType})], conf, True)
+        super().__init__(conf.okx['ws_private'],
+                         [Subscription(self.channel, {'instType': self.strategy.instrument_type})], conf, True)
 
     async def handle_message(self, message: dict):
         await super().handle_message(message)
@@ -223,8 +231,9 @@ class PositionSubscriber(OkxConnectionManager):
         self.strategy = strategy
         conf = TradeBotConf.load()
         logging.info('init PositionSubscriber')
-        super().__init__(conf.okx['ws_private'], [Subscription(self.channel, {'instType': self.strategy.instrumentType}, interval=3)], conf, True)
-
+        super().__init__(conf.okx['ws_private'],
+                         [Subscription(self.channel, {'instType': self.strategy.instrument_type}, interval=3)], conf,
+                         True)
 
     async def handle_message(self, message: dict):
         await super().handle_message(message)
@@ -240,11 +249,13 @@ class TickSubscriber(OkxConnectionManager):
         self.strategy = strategy
         conf = TradeBotConf.load()
         logging.info('init TickSubscriber')
-        super().__init__(conf.okx['ws_public'], [Subscription(self.channel, {'instId': sub}, interval=1) for sub in self.strategy.symbols])
+        super().__init__(conf.okx['ws_public'],
+                         [Subscription(self.channel, {'instId': sub}, interval=1) for sub in self.strategy.symbols])
 
     async def handle_message(self, message: dict):
         await super().handle_message(message)
-        if message.get('arg', {}).get('channel') == self.channel and message.get('data') and len(message.get('data')) > 0:
+        if message.get('arg', {}).get('channel') == self.channel and message.get('data') and len(
+                message.get('data')) > 0:
             ticks = to_okx_tick(message['data'][0])
             self.strategy.on_tick(ticks)
         logging.debug(f'[tick] {json.dumps(message)}')
@@ -261,26 +272,49 @@ class BarSubscriber(OkxConnectionManager):
             for bar_type in self.bar_types:
                 logging.info(f'subscribe {bar_type}-{symbol}')
                 subscriptions.append(Subscription(f'{bar_type}', {'instId': symbol}, interval=1))
-        
+
         super().__init__(conf.okx['ws_public'], subscriptions)
 
     async def handle_message(self, message: dict):
         await super().handle_message(message)
-        if message.get('arg', {}).get('channel', None) in self.bar_types and message.get('data') and len(message.get('data')) > 0:
+        if message.get('arg', {}).get('channel', None) in self.bar_types and message.get('data') and len(
+                message.get('data')) > 0:
             bars = to_okx_bar(message['data'])
             self.strategy.on_bar(bars)
         logging.debug(f'[bar] {json.dumps(message)}')
 
 
 class OkxSubscriber(Subscriber):
+
     def __init__(self, strategy: Strategy) -> None:
+        super().__init__(strategy)
         self.strategy = strategy
         self.strategy.on_init_exchange(OkxExchangeClient(TradeBotConf.load()))
-    
-    
-    def run(self) -> List[asyncio.Future]:
+
+    def on_tick(self, ticks: List[Tick]):
+        super().on_tick(ticks)
+
+    def on_bar(self, bars: List[Bar]):
+        super().on_bar(bars)
+
+    def on_order_status(self, orders: List[Order]):
+        super().on_order_status(orders)
+
+    def on_balance_status(self, balance: List[Balance]):
+        super().on_balance_status(balance)
+
+    def on_position_status(self, positions: List[Position]):
+        super().on_position_status(positions)
+
+    def run(self) -> Future[tuple[None, None, None, None, None]]:
         return asyncio.gather(BalanceSubscribe(self.strategy).run(),
-                            OrderSubscriber(self.strategy).run(),
-                            BarSubscriber(self.strategy).run(),
-                            TickSubscriber(self.strategy).run(),
-                            PositionSubscriber(self.strategy).run())
+                              OrderSubscriber(self.strategy).run(),
+                              BarSubscriber(self.strategy).run(),
+                              TickSubscriber(self.strategy).run(),
+                              PositionSubscriber(self.strategy).run())
+
+    def stop(self) -> None:
+        super().stop()
+
+    def get_exchange(self) -> Exchange:
+        return super().get_exchange()
