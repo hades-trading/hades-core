@@ -8,6 +8,7 @@ BINANCE_SECRET_KEY = 'BINANCE_SECRET_KEY'
 NOTIFICATION_TOKEN = 'NOTIFICATION_TOKEN'
 NOTIFICATION_PREFIX = 'NOTIFICATION_PREFIX'
 NOTIFICATION_PERIOD = 'NOTIFICATION_PERIOD'
+NOTIFICATION_CHAT_ID = 'NOTIFICATION_CHAT_ID'
 
 
 class TradeBotConf:
@@ -17,6 +18,7 @@ class TradeBotConf:
             self.token = os.environ.get(NOTIFICATION_TOKEN)
             self.prefix = os.environ.get(NOTIFICATION_PREFIX)
             self.period = os.environ.get(NOTIFICATION_PERIOD)
+            self.chat = os.environ.get(NOTIFICATION_CHAT_ID)
         else:
             if conf.has_section('okx'):
                 self.okx = {
@@ -32,11 +34,12 @@ class TradeBotConf:
                 self.binance = {'apiKey': conf['binance']['apiKey'], 'secretKey': conf['binance']['secretKey']}
             if conf.has_section('dingding'):
                 self.token = conf['dingding']['token']
-                self.prefix = conf['dingding']['prefix']
                 self.period = conf['dingding']['period']
+                self.prefix = conf['dingding']['prefix']
             if conf.has_section('telegram'):
                 self.token = conf['telegram']['token']
                 self.period = conf['telegram']['period']
+                self.chat = conf['telegram']['chat']
 
     @staticmethod
     def load():
